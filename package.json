@@ -1,8 +1,7 @@
 {
   "name": "solana-trading-dashboard",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Web dashboard for Solana trading activity and PNL tracking using Jupiter and Helius APIs",
-  "type": "module",
   "main": "src/dashboard.mjs",
   "scripts": {
     "start": "node src/dashboard.mjs",
