@@ -1,6 +1,6 @@
 {
   "name": "solana-trading-dashboard",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Web dashboard for Solana trading activity and PNL tracking using Jupiter and Helius APIs",
   "scripts": {
     "start": "node src/dashboard.mjs",
@@ -13,6 +13,6 @@
   "author": "bellathebot",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": "18.x"
   }
 }
