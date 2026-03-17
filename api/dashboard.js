@@ -1,4 +1,4 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   var WALLET = process.env.WALLET_ADDRESS || '';
   var HELIUS_API_KEY = process.env.HELIUS_API_KEY || '';
   var INITIAL_DEPOSIT_USD = parseFloat(process.env.INITIAL_DEPOSIT_USD || '0');
@@ -142,4 +142,4 @@ module.exports = async function handler(req, res) {
     console.error('Handler error:', err);
     return res.status(500).json({ error: String(err) });
   }
-};
+}
