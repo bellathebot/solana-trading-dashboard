@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solana Trading Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --dim: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --cyan: #58a6ff;
+      --yellow: #d29922;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    header {
+      text-align: center;
+      padding: 24px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    header h1 { font-size: 1.5em; color: var(--cyan); letter-spacing: 2px; }
+    header .wallet {
+      font-size: 0.75em;
+      color: var(--dim);
+      margin-top: 6px;
+      word-break: break-all;
+    }
+    header .wallet a { color: var(--dim); text-decoration: none; }
+    header .wallet a:hover { color: var(--cyan); }
+    header .ts { font-size: 0.7em; color: var(--dim); margin-top: 4px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card.full { grid-column: 1 / -1; }
+    .card h2 {
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--dim);
+      margin-bottom: 12px;
+    }
+    .big-number {
+      font-size: 2em;
+      font-weight: bold;
+    }
+    .pnl-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85em;
+    }
+    .pnl-row:last-child { border: none; }
+    .pnl-label { color: var(--dim); }
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .neutral { color: var(--dim); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8em;
+    }
+    th {
+      text-align: left;
+      color: var(--dim);
+      font-weight: normal;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    th:nth-child(n+2) { text-align: right; }
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #21262d;
+    }
+    td:nth-child(n+2) { text-align: right; }
+    td .symbol { font-weight: bold; }
+    .loading {
+      text-align: center;
+      color: var(--dim);
+      padding: 60px 0;
+      font-size: 1.2em;
+    }
+    .loading .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { color: var(--red); text-align: center; padding: 40px; }
+    .refresh-bar {
+      text-align: center;
+      font-size: 0.7em;
+      color: var(--dim);
+      padding: 16px 0;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: bold;
+    }
+    .pill.up { background: rgba(63,185,80,0.15); color: var(--green); }
+    .pill.down { background: rgba(248,81,73,0.15); color: var(--red); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>◎ SOLANA TRADING DASHBOARD</h1>
+      <div class="wallet" id="wallet"></div>
+      <div class="ts" id="timestamp"></div>
+    </header>
+    <div id="content">
+      <div class="loading"><span class="spinner"></span>Loading dashboard...</div>
+    </div>
+    <div class="refresh-bar" id="refresh-bar"></div>
+  </div>
+
+  <script>
+    const REFRESH_MS = 30000; // 30 seconds
+    let lastData = null;
+
+    function fmt(n, d = 2) { return n.toFixed(d); }
+    function fmtUsd(n) {
+      if (Math.abs(n) >= 1) return '$' + fmt(n);
+      if (Math.abs(n) >= 0.001) return '$' + fmt(n, 6);
+      return '$' + fmt(n, 10);
+    }
+    function pnlClass(n) { return n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral'; }
+    function pnlSign(n) { return n > 0 ? '+' : ''; }
+    function pillHtml(change) {
+      const cls = change >= 0 ? 'up' : 'down';
+      return `<span class="pill ${cls}">${pnlSign(change)}${fmt(change)}%</span>`;
+    }
+
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      } catch (err) {
+        return { error: err.message };
+      }
+    }
+
+    function render(data) {
+      if (data.error) {
+        document.getElementById('content').innerHTML = `<div class="error">Error: ${data.error}</div>`;
+        return;
+      }
+
+      lastData = data;
+      const w = data.wallet;
+      document.getElementById('wallet').innerHTML =
+        `<a href="https://solscan.io/account/${w}" target="_blank">${w}</a>`;
+      document.getElementById('timestamp').textContent =
+        new Date(data.ts).toLocaleString() + ' UTC';
+
+      const p = data.portfolio;
+      const pnl = data.pnl;
+
+      // Portfolio tokens table
+      let tokenRows = '';
+      for (const t of p.tokens) {
+        tokenRows += `<tr>
+          <td><span class="symbol">${t.symbol}</span></td>
+          <td>${t.amount < 1 ? fmt(t.amount, 6) : fmt(t.amount, 4)}</td>
+          <td>${fmtUsd(t.price)}</td>
+          <td>${fmtUsd(t.value)}</td>
+          <td>${pillHtml(t.priceChange24h)}</td>
+        </tr>`;
+      }
+
+      // Watchlist table
+      let watchRows = '';
+      for (const t of data.watchlist) {
+        watchRows += `<tr>
+          <td><span class="symbol">${t.symbol}</span></td>
+          <td>${fmtUsd(t.price)}</td>
+          <td>${pillHtml(t.priceChange24h)}</td>
+          <td>$${(t.liquidity / 1e6).toFixed(1)}M</td>
+        </tr>`;
+      }
+
+      document.getElementById('content').innerHTML = `
+        <div class="grid">
+          <div class="card">
+            <h2>Portfolio Value</h2>
+            <div class="big-number">${fmtUsd(p.totalValue)}</div>
+          </div>
+          <div class="card">
+            <h2>All-Time PNL</h2>
+            <div class="big-number ${pnlClass(pnl.allTimePnl)}">${pnlSign(pnl.allTimePnl)}${fmtUsd(pnl.allTimePnl)}</div>
+            <div style="margin-top:4px;font-size:0.85em" class="${pnlClass(pnl.allTimePnlPct)}">${pnlSign(pnl.allTimePnlPct)}${fmt(pnl.allTimePnlPct)}% from $${fmt(pnl.initialDeposit)} deposit</div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card full">
+            <h2>Holdings</h2>
+            <table>
+              <thead><tr><th>Token</th><th>Amount</th><th>Price</th><th>Value</th><th>24h</th></tr></thead>
+              <tbody>${tokenRows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card full">
+            <h2>Watchlist</h2>
+            <table>
+              <thead><tr><th>Token</th><th>Price</th><th>24h</th><th>Liquidity</th></tr></thead>
+              <tbody>${watchRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    async function tick() {
+      const data = await fetchData();
+      render(data);
+      const next = new Date(Date.now() + REFRESH_MS);
+      document.getElementById('refresh-bar').textContent =
+        `Auto-refreshes every ${REFRESH_MS/1000}s`;
+    }
+
+    tick();
+    setInterval(tick, REFRESH_MS);
+  </script>
+</body>
+</html>
