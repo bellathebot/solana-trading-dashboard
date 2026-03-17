@@ -1,116 +1,117 @@
 # Solana Trading Dashboard
 
-A terminal dashboard for monitoring Solana trading activity and PNL. Built on top of the [Jupiter CLI](https://github.com/jup-ag/cli) and [Helius CLI](https://github.com/helius-labs/helius-cli).
+A real-time web and terminal dashboard for monitoring Solana trading activity and PNL. Built on the [Jupiter](https://jup.ag) and [Helius](https://helius.dev) APIs.
+
+![Dashboard](https://img.shields.io/badge/Solana-Trading_Dashboard-blue?style=flat-square)
 
 ## Features
 
 - **Live Portfolio View** — token balances, USD values, 24h price changes
-- **PNL Tracking** — all-time, hourly, and daily profit/loss vs initial deposit
-- **Perps Markets** — SOL, BTC, ETH prices, volume, and 24h changes
-- **Perps Positions** — open leveraged positions with entry, mark, liquidation prices
-- **Network Status** — Solana epoch, block height, version
-- **Trade History** — logged trades with PNL per trade
-- **Snapshot System** — rolling snapshots for historical PNL comparison
-- **Watch Mode** — auto-refreshing terminal dashboard
-- **JSON Output** — structured data for programmatic consumption
+- **PNL Tracking** — all-time profit/loss vs initial deposit
+- **Watchlist** — track prices and liquidity for tokens you care about
+- **Auto-Refresh** — updates every 30 seconds
+- **Responsive** — works on desktop and mobile
+- **Terminal Mode** — CLI dashboard with watch mode and snapshot system
 
-## Prerequisites
+## Deploy to Vercel
 
-- [Node.js](https://nodejs.org/) v18+
-- [Jupiter CLI](https://github.com/jup-ag/cli) (`npm i -g @jup-ag/cli`)
-- [Helius CLI](https://github.com/helius-labs/helius-cli) (`npm i -g helius-cli`)
-- A Helius API key ([get one free](https://dev.helius.xyz))
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbellathebot%2Fsolana-trading-dashboard&env=WALLET_ADDRESS,HELIUS_API_KEY,INITIAL_DEPOSIT_USD)
 
-## Setup
+### Required Environment Variables
+
+Set these in your Vercel project settings:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `WALLET_ADDRESS` | Yes | Solana wallet address to track |
+| `HELIUS_API_KEY` | Yes | Helius API key ([get one free](https://dev.helius.xyz)) |
+| `INITIAL_DEPOSIT_USD` | No | Initial deposit in USD for PNL calculation (default: 0) |
+
+## Local Development
 
 ```bash
-# Clone the repo
+# Clone
 git clone https://github.com/bellathebot/solana-trading-dashboard.git
 cd solana-trading-dashboard
 
-# Configure environment
+# Configure
 cp .env.example .env
-# Edit .env with your wallet address, API keys, and CLI paths
+# Edit .env with your wallet address and API keys
 
-# Set up Jupiter CLI key (if not already done)
-jup keys add trading --file ~/.config/solana/id.json
-jup keys use trading
-jup config set --output json
+# Run web version (requires vercel CLI)
+npx vercel dev
 
-# Set up Helius CLI (if not already done)
-helius config set-api-key YOUR_API_KEY
-```
-
-## Usage
-
-```bash
-# Full dashboard (single run)
-npm start
-
-# Auto-refreshing watch mode
-npm run watch
-
-# PNL report only
-npm run pnl
-
-# Trade history
-npm run history
-
-# Record snapshot silently (for cron jobs)
-npm run snapshot
-
-# Raw JSON output (for piping to other tools)
-node src/dashboard.mjs --json
-```
-
-## Dashboard Modes
-
-### Full Dashboard (`npm start`)
-Shows portfolio, PNL, perps markets, open positions, and network status in a styled terminal UI.
-
-### Watch Mode (`npm run watch`)
-Clears the terminal and refreshes the dashboard at the configured interval (default: 60s).
-
-### PNL Report (`npm run pnl`)
-Shows detailed profit/loss breakdown: all-time, hourly, daily, session high/low, and trade statistics.
-
-### Snapshot Mode (`npm run snapshot`)
-Silently records a portfolio snapshot and outputs a JSON summary. Designed for cron:
-```bash
-# Record a snapshot every 5 minutes
-*/5 * * * * cd /path/to/dashboard && node src/dashboard.mjs --snapshot >> /dev/null
+# Or use the terminal CLI version
+npm start          # full dashboard
+npm run watch      # auto-refresh
+npm run pnl        # PNL report
+npm run snapshot   # record snapshot (for cron)
 ```
 
 ## Project Structure
 
 ```
 solana-trading-dashboard/
+├── api/
+│   └── dashboard.js       # Vercel serverless function (Jupiter + Helius APIs)
+├── public/
+│   └── index.html         # Web frontend (vanilla HTML/CSS/JS)
 ├── src/
-│   └── dashboard.mjs    # Entry point and CLI argument handling
+│   └── dashboard.mjs      # Terminal CLI dashboard
 ├── lib/
-│   ├── config.mjs       # .env loader and configuration
-│   ├── data.mjs         # Data collection from Jupiter & Helius CLIs
-│   ├── pnl.mjs          # PNL calculation, snapshots, trade logging
-│   └── render.mjs       # Terminal UI rendering
-├── .env.example         # Environment template
-├── .gitignore           # Excludes .env, data/, node_modules/
+│   ├── config.mjs         # .env loader
+│   ├── data.mjs           # CLI data collection
+│   ├── pnl.mjs            # PNL calculation & snapshots
+│   └── render.mjs         # Terminal UI renderer
+├── vercel.json            # Vercel routing config
+├── .env.example           # Config template
+├── .gitignore             # Excludes .env, data/, node_modules/
 ├── package.json
 └── README.md
 ```
 
-## Environment Variables
+## Architecture
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `WALLET_ADDRESS` | Yes | Solana wallet address to track |
-| `HELIUS_API_KEY` | Yes | Helius API key for on-chain data |
-| `JUPITER_API_KEY` | No | Jupiter API key for higher rate limits |
-| `JUP_BIN` | No | Path to `jup` binary (default: `jup`) |
-| `HELIUS_BIN` | No | Path to `helius` binary (default: `helius`) |
-| `DATA_DIR` | No | Snapshot storage directory (default: `./data`) |
-| `INITIAL_DEPOSIT_USD` | No | Initial deposit in USD for all-time PNL |
-| `INITIAL_DEPOSIT_SOL` | No | Initial deposit in SOL |
-| `REFRESH_INTERVAL` | No | Watch mode refresh interval in seconds (default: 60) |
+### Web (Vercel)
+```
+Browser → /api/dashboard → Jupiter Price API + Helius RPC → JSON → Frontend renders
+```
+The serverless function fetches live data directly from Jupiter and Helius REST APIs. No CLIs needed on the server.
+
+### Terminal (CLI)
+```
+Terminal → jup CLI + helius CLI → parsed JSON → Terminal UI renderer
+```
+Uses the locally installed Jupiter and Helius CLIs for data. Supports watch mode, snapshots, and PNL history.
+
+## API
+
+### `GET /api/dashboard`
+
+Returns the full dashboard payload:
+
+```json
+{
+  "ts": "2026-03-17T02:00:00.000Z",
+  "wallet": "jTsP9QPb...",
+  "portfolio": {
+    "totalValue": 100.77,
+    "tokens": [
+      { "symbol": "SOL", "amount": 0.8478, "price": 96.14, "value": 81.51, "priceChange24h": 4.5 },
+      { "symbol": "USDC", "amount": 19.20, "price": 1.0, "value": 19.20, "priceChange24h": 0 }
+    ]
+  },
+  "pnl": {
+    "initialDeposit": 100.95,
+    "currentValue": 100.77,
+    "allTimePnl": -0.18,
+    "allTimePnlPct": -0.18
+  },
+  "watchlist": [
+    { "symbol": "JUP", "price": 0.169, "priceChange24h": 3.8, "liquidity": 50000000 }
+  ]
+}
+```
 
 ## License
 
