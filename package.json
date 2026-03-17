@@ -1,7 +1,7 @@
 {
   "name": "solana-trading-dashboard",
-  "version": "1.0.0",
-  "description": "Terminal dashboard for Solana trading activity and PNL tracking using Jupiter and Helius CLIs",
+  "version": "2.0.0",
+  "description": "Web dashboard for Solana trading activity and PNL tracking using Jupiter and Helius APIs",
   "type": "module",
   "main": "src/dashboard.mjs",
   "scripts": {
@@ -11,7 +11,10 @@
     "pnl": "node src/dashboard.mjs --pnl",
     "history": "node src/dashboard.mjs --history"
   },
-  "keywords": ["solana", "trading", "dashboard", "jupiter", "helius", "pnl"],
+  "keywords": ["solana", "trading", "dashboard", "jupiter", "helius", "pnl", "vercel"],
   "author": "bellathebot",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
 }
